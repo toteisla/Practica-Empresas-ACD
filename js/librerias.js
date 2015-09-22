@@ -1,0 +1,1033 @@
+var areaseleccionada='';
+var opcionelegida='';
+var timer='';
+var jsonanterior='';
+function SelObj(selname,textname,str) {
+this.selname = selname;
+this.textname = textname;
+this.select_str = str || '';
+this.selectArr = new Array();
+this.initialize = initialize;
+this.bldInitial = bldInitial;
+this.bldUpdate = bldUpdate;
+}
+/*
+ * Esta funcion rescata un proyecto rellena el formulario con los valores recibidos
+ */
+function cargaProyectos(id){
+	var ajax = objetoAjax();
+	var json='';
+	var estructura='';
+		ajax.open("GET", "./gestion/recuperarproyecto.php?id="+id,false);
+			ajax.onreadystatechange=function() {
+			if (ajax.readyState==4) {
+					json = ajax.responseText;
+					var arrayD = eval('(' + json + ')');
+					/*
+					*Recoge informacion por JSON y asignamos valores
+					*/
+					document.getElementById('nombreproyecto').value=arrayD.nombre;
+					fechaa=arrayD.fini.split('-');
+					fechab=arrayD.ffin.split('-');
+					fechainipro=fechaa[2]+"/"+fechaa[1]+"/"+fechaa[0];
+					fechafinpro=fechab[2]+"/"+fechab[1]+"/"+fechab[0];
+					document.getElementById('fecha').value=fechainipro;
+					document.getElementById('fecha1').value=fechafinpro;
+					document.getElementById('selectcli').options;
+					for(i=0;i<document.getElementById('selectcli').options.length;i++)
+					{
+						if(document.getElementById('selectcli').options[i].value==arrayD.cliente)
+						{
+							document.getElementById('selectcli').options[i].selected=true;
+						}
+					}
+					for(i=0;i<document.getElementById('selectjefe').options.length;i++)
+					{
+						if(document.getElementById('selectjefe').options[i].value==arrayD.jefe)
+						{
+							document.getElementById('selectjefe').options[i].selected=true;
+						}
+					}
+					respuesta=document.getElementById('resultareas');
+					/*
+					*Borramos el contenido del div resultareas
+					*/
+					eliminarContenido(respuesta);
+					x=arrayD.SubProyecto.length;
+					/*
+					*Añadimos el contenido al div resultareas
+					*/
+					for(j = 0; j < x ; j++)
+					{
+						var numeroasig = asignarsub(arrayD.SubProyecto[j].id);
+						for(i=0;i<document.getElementById('select'+numeroasig).options.length;i++)
+						{
+							if(document.getElementById('select'+numeroasig).options[i].value==arrayD.SubProyecto[j].idsub)
+							{
+								document.getElementById('select'+numeroasig).options[i].selected=true;
+							}
+						}
+						for(i=0;i<document.getElementById('selecty'+numeroasig).options.length;i++)
+						{
+							if(document.getElementById('selecty'+numeroasig).options[i].value==arrayD.SubProyecto[j].idj)
+							{
+								document.getElementById('selecty'+numeroasig).options[i].selected=true;
+							}
+						}
+						fechax=arrayD.SubProyecto[j].fechainiA.split('-');
+						fechainisub=fechax[2]+"/"+fechax[1]+"/"+fechax[0];
+						fechay=arrayD.SubProyecto[j].fechafinA.split('-');
+						fechafinsub=fechay[2]+"/"+fechay[1]+"/"+fechay[0];
+						document.getElementById('fechaisub'+numeroasig).value=fechainisub;
+						document.getElementById('fechafsub'+numeroasig).value=fechafinsub;
+						var area='';
+						/*
+						*Añadimos las areas a cada subproyecto
+						*/
+						for(i=0;i<arrayD.SubProyecto[j].Areas.length;i++)
+						{
+							for(z=0;z<document.getElementById('select3'+numeroasig).options.length;z++){
+								
+								if(document.getElementById('select3'+numeroasig).options[z].value==arrayD.SubProyecto[j].Areas[i].idarea)
+								{
+									document.getElementById('select3'+numeroasig).options[z].selected=true;
+									area=document.getElementById('select3'+numeroasig).options[z].innerHTML;
+							
+									var nombreusuario='';
+									var ajax1 = objetoAjax();
+									/*
+									*Recuperamos nombre del usuario
+									*/
+									ajax1.open("GET", "./gestion/recuperanombreusuario.php?id="+arrayD.SubProyecto[j].Areas[i].idusu,false);
+									ajax1.onreadystatechange=function() {
+										if (ajax1.readyState==4) {
+											nombreusuario=ajax1.responseText;
+										}
+									}
+									ajax1.send();
+											estructura+= "<a class='tooltip'>"+area+"|"+nombreusuario+"<span>\nini:"+arrayD.SubProyecto[j].Areas[i].fechaestini+"\nfin:"+arrayD.SubProyecto[j].Areas[i].fechaestfin+"</span></a>";	
+											document.getElementById('resultareas'+numeroasig).innerHTML+="<div name='pdiv"+numeroasig+"' id='"+arrayD.SubProyecto[j].Areas[i].idarea+"|"+arrayD.SubProyecto[j].Areas[i].idusu+"|"+arrayD.SubProyecto[j].Areas[i].fechaestini+"|"+arrayD.SubProyecto[j].Areas[i].fechaestfin+"'>"+estructura+"<br></div>";
+											estructura='';
+								}
+							}
+							
+						}
+					}
+				}
+			}
+			ajax.send();
+			jsonanterior=eval('(' + json + ')');		
+}
+/*
+*Metodo que crea un JSON con los valores nuevos y lo compara con lo antiguo
+*Modifica,crea o elimina lo que reconoce que es diferente entre ellos. 
+*/
+function modificarproyecto(id){
+	var nombreproyecto=document.getElementById('nombreproyecto').value;
+	var cliente=document.getElementById('selectcli').value;
+	var jefe=document.getElementById('selectjefe').value;
+	var fini=document.getElementById('fecha').value;
+	var ffin=document.getElementById('fecha1').value;
+	var fecham=fini.split('/');
+	var fechainipro=fecham[2]+"-"+fecham[1]+"-"+fecham[0];
+	var fechan=ffin.split('/');
+	var fechafinpro=fechan[2]+"-"+fechan[1]+"-"+fechan[0];
+	var parrafo=document.getElementsByName('selsubpro');
+	var idsubpro=document.getElementsByName('tablasub');
+	var idarea='';
+	var idusuario='';
+	var fechaiarea='';
+	var fechafarea='';
+	var contador=0;
+	var contadorarea=0;
+	var Areas='';
+	var num='';
+	/*
+	*Creamos JSON de los datos nuevos
+	*/
+	var json="{";
+	json+="\"nombre\": \""+nombreproyecto+"\", ";
+	json+="\"cliente\": \""+cliente+"\", ";
+	json+="\"jefe\": \""+jefe+"\", ";
+	json+="\"fini\": \""+fechainipro+"\", ";
+	json+="\"ffin\": \""+fechafinpro+"\", ";
+	json+=" \"SubProyecto\" :[ ";
+	for(i=0;i<idsubpro.length;i++){
+		contador+=1;
+		contadorarea=0;
+		num=parrafo[i].id.substring(6);
+		var idsubpronuevos=document.getElementsByName('tablasubnuevos');
+		Areas=document.getElementsByName('pdiv'+num);
+		var fini1=document.getElementById('fechaisub'+num).value;
+		var ffin1=document.getElementById('fechafsub'+num).value;
+		var fecham=fini1.split('/');
+		var fechainisub=fecham[2]+"-"+fecham[1]+"-"+fecham[0];
+		var fechan=ffin1.split('/');
+		var fechafinsub=fechan[2]+"-"+fechan[1]+"-"+fechan[0];
+		var idj=document.getElementById('selecty'+num).value;
+		json+="{ \"id\": \""+idsubpro[i].id+"\" , ";
+		json+="\"fechafinA\": \""+fechafinsub+"\" , ";
+		json+="\"fechainiA\": \""+fechainisub+"\" , ";
+		json+="\"idsub\": \""+parrafo[i].value+"\" , ";
+		json+="\"idj\": \""+idj+"\" , ";
+		json+="\"Areas\":[ ";
+		for(j=0;j<Areas.length;j++){
+			contadorarea+=1;
+			var cortado=Areas[j].id.split("|");
+			idarea=cortado[0];
+			idusuario=cortado[1];
+			fechaararea=cortado[2];
+			fechaarfarea=cortado[3];
+			json+="{ ";
+			json+="\"fechaestini\": \""+fechaararea+"\" , ";
+			json+="\"fechaestfin\": \""+fechaarfarea+"\" , ";
+			json+="\"idarea\": \""+idarea+"\" , ";
+			if(contadorarea<Areas.length){
+			json+="\"idusu\": \""+idusuario+"\" } , ";	
+			}else{
+			json+="\"idusu\": \""+idusuario+"\" }]";		
+			}
+		}
+		if(contador<idsubpro.length){
+			json+='},';
+		}else{
+			json+='}]}';	
+		}
+		
+	}
+	/*
+	 * Si los valores son correctos modificar proyecto
+	 * 6 es el numero de valores correctos.
+	 */
+	if(compruebavaloresproyecto()==6){
+		/*
+		*modifica datos de la base de datos
+		*/
+		var jsonnuevo=eval('(' + json + ')');
+		var ajax1 = objetoAjax();
+		ajax1.open("GET", "./gestion/modificarbdproyecto.php?id="+id+"&texto="+json,false);
+		ajax1.send();
+		var contadoraeliminar=0;
+		var boolesta = false;
+		var boolarea = false;
+		var boolañadir=true;
+		/*
+		*Busca diferencias entre los dos JSON de ser así llama al metodo correspondiente
+		*/
+		for(i=0;i<jsonanterior.SubProyecto.length;i++){
+			boolesta=false;
+			for(j=0;j<jsonnuevo.SubProyecto.length;j++){
+				if(jsonanterior.SubProyecto[i].id==jsonnuevo.SubProyecto[j].id){
+					boolesta=true;
+					for(a=0;a<jsonanterior.SubProyecto[i].Areas.length;a++){
+						boolarea=false;
+						for(b=0;b<jsonnuevo.SubProyecto[i].Areas.length;b++){
+							if(jsonanterior.SubProyecto[i].Areas[a].idarea==jsonnuevo.SubProyecto[j].Areas[b].idarea){
+								boolarea = true;
+								modificarasigareas(jsonnuevo.SubProyecto[j],jsonnuevo.SubProyecto[j].Areas[b].idarea);
+								break;
+							}
+						}
+						if(boolarea==false){
+						eliminararea(jsonanterior.SubProyecto[i],jsonanterior.SubProyecto[i].Areas[a].idarea);	
+						}
+					}
+					for(a=0;a<jsonnuevo.SubProyecto[i].Areas.length;a++){
+						boolañadir=true;
+						for(b=0;b<jsonanterior.SubProyecto[i].Areas.length;b++){
+							if(jsonanterior.SubProyecto[i].Areas[b].idarea==jsonnuevo.SubProyecto[j].Areas[a].idarea){
+								boolañadir = false;
+								break;
+							}
+						}
+						if(boolañadir==true){
+							añadirarea(jsonnuevo.SubProyecto[i],jsonnuevo.SubProyecto[i].Areas[a].idarea);	
+						}
+					}
+					break;	
+				}else{
+					boolesta=false;	
+				}
+			}
+			if(boolesta==false){
+				eliminardatossub(jsonanterior.SubProyecto[i].id);
+			}else{
+				modificardatossub(jsonnuevo.SubProyecto[i]);
+			}
+		}
+		/*
+		*Si existen nuevos subproyectos se agregan junto con sus areas
+		*/
+		for(a=0;a<idsubpronuevos.length;a++){
+			añadirdatossub(idsubpronuevos[a].id,document.getElementById('selectProyecto').value);
+		}
+		/*
+		*Vuelve a la pantalla Modificar Proyecto con los campos vacios
+		*/
+	opcion('modificaProyecto.php');
+	}
+}
+/*
+*Elimina subproyecto
+*/
+function eliminardatossub(id){
+	var ajax1 = objetoAjax();
+	ajax1.open("GET", "./gestion/borrarsubproyecto.php?id="+id,false);
+	ajax1.send();
+}
+/*
+*Añade areas
+*/
+function añadirarea(subpro,idarea){
+	var jsonx='{ ';
+	for(m=0;m<subpro.Areas.length;m++){
+			if(subpro.Areas[m].idarea==idarea){
+					jsonx+=" \"fechaestini\": \""+subpro.Areas[m].fechaestini+"\" ,";
+					jsonx+=" \"fechaestfin\": \""+subpro.Areas[m].fechaestfin+"\" ,";
+					jsonx+=" \"idarea\": \""+subpro.Areas[m].idarea+"\" ,";
+					jsonx+=" \"idusu\": \""+subpro.Areas[m].idusu+"\" }";
+			}
+	}
+	var ajax1 = objetoAjax();
+	ajax1.open("GET", "./gestion/añadirareas.php?texto="+jsonx+"&idsubp="+subpro.id,false);
+	ajax1.send();
+}
+/*
+*Elimina areas
+*/
+function eliminararea(subpro,idarea){
+	var jsonx='{ ';
+	for(m=0;m<subpro.Areas.length;m++){
+			if(subpro.Areas[m].idarea==idarea){
+					jsonx+=" \"fechaestini\": \""+subpro.Areas[m].fechaestini+"\" ,";
+					jsonx+=" \"fechaestfin\": \""+subpro.Areas[m].fechaestfin+"\" ,";
+					jsonx+=" \"idarea\": \""+subpro.Areas[m].idarea+"\" ,";
+					jsonx+=" \"idusu\": \""+subpro.Areas[m].idusu+"\" }";
+			}
+	}
+	var ajax1 = objetoAjax();
+	ajax1.open("GET", "./gestion/eliminarareas.php?texto="+jsonx+"&idsubp="+subpro.id,false);
+	ajax1.send();
+}	
+/*
+*Modifica area
+*/
+function modificarasigareas(subpro,idarea){
+	var jsonx='{ ';
+	for(m=0;m<subpro.Areas.length;m++){
+			if(subpro.Areas[m].idarea==idarea){
+					jsonx+=" \"fechaestini\": \""+subpro.Areas[m].fechaestini+"\" ,";
+					jsonx+=" \"fechaestfin\": \""+subpro.Areas[m].fechaestfin+"\" ,";
+					jsonx+=" \"idarea\": \""+subpro.Areas[m].idarea+"\" ,";
+					jsonx+=" \"idusu\": \""+subpro.Areas[m].idusu+"\" }";
+			}
+	}
+	var ajax1 = objetoAjax();
+	ajax1.open("GET", "./gestion/modificarareas.php?texto="+jsonx+"&idsubp="+subpro.id,false);
+	ajax1.send();
+}
+/*
+*Modifica los datos del subproyecto
+*/
+function modificardatossub(datos){
+		var jsonx="{ \"id\": \""+datos.id+"\" , ";
+		jsonx+=" \"fechafinA\": \""+datos.fechafinA+"\" , ";
+		jsonx+="\"fechainiA\": \""+datos.fechainiA+"\" , ";
+		jsonx+="\"idsub\": \""+datos.idsub+"\" , ";
+		jsonx+="\"idj\": \""+datos.idj+"\"}";
+	var ajax1 = objetoAjax();
+	ajax1.open("GET", "./gestion/modificarsubproyectos.php?texto="+jsonx,false);
+	ajax1.send();
+}
+/*
+*Añade subproyecto y las areas para ese subproyecto
+*/
+function añadirdatossub(marco,idproy){
+		var fechainiciosub=document.getElementById('fechaisub'+marco).value;
+		var fechafinalsub=document.getElementById('fechafsub'+marco).value;
+		var fechaincorte=fechainiciosub.split('/');
+		var fechaficorte=fechafinsub.split('/');
+		var fechainiciosub=fechaincorte[2]+"-"+fechaincorte[1]+"-"+fechaincorte[0];
+		var fechafinalsub=fechaficorte[2]+"-"+fechaficorte[1]+"-"+fechaficorte[0];
+		var idsub=document.getElementById('select'+marco).value;
+		var idj=document.getElementById('selecty'+marco).value;
+		var Areas=document.getElementsByName('pdiv'+marco);
+		var jsonx="{ \"id\": \""+idproy+"\" , ";
+		jsonx+=" \"fechafinA\": \""+fechainiciosub+"\" , ";
+		jsonx+="\"fechainiA\": \""+fechafinalsub+"\" , ";
+		jsonx+="\"idsub\": \""+idsub+"\" , ";
+		jsonx+="\"idj\": \""+idj+"\" , ";
+		jsonx+="\"Areas\":[ ";
+		var contadorareas=0;
+		for(j=0;j<Areas.length;j++){
+			contadorareas+=1;
+			var cortado=Areas[j].id.split("|");
+			idarea=cortado[0];
+			idusuario=cortado[1];
+			fechaararea=cortado[2];
+			fechaarfarea=cortado[3];
+			jsonx+="{ ";
+			jsonx+="\"fechaestini\": \""+fechaararea+"\" , ";
+			jsonx+="\"fechaestfin\": \""+fechaarfarea+"\" , ";
+			jsonx+="\"idarea\": \""+idarea+"\" , ";
+			if(contadorareas<Areas.length){
+			jsonx+="\"idusu\": \""+idusuario+"\" } , ";	
+			}else{
+			jsonx+="\"idusu\": \""+idusuario+"\" }]}";		
+			}
+		}
+	var ajax1 = objetoAjax();
+	ajax1.open("GET", "./gestion/añadirsubpro.php?texto="+jsonx,false);
+	ajax1.send();
+}
+/*
+*Borra correo
+*/
+function borrarcorreo(id,pantalla){
+	var ajax1 = objetoAjax();
+	ajax1.open("GET", "./gestion/borrarcorreo.php?id="+id+"&pant="+pantalla,false);
+	ajax1.send();
+	if(pantalla=='env'){
+		accion("Enviados");
+	}
+	if(pantalla=='rec'){
+		accion("Recibidos");
+	}
+}
+function countProperties(obj) {
+  var prop;
+  var propCount = 0;
+  
+  for (prop in obj) {
+    propCount++;
+  }
+  return propCount;
+}
+/*
+*Oculta el div de asignación y deja visible la cabecera
+*/
+function cancel(num){
+document.getElementById('divfondo').style.display='none';
+document.getElementById('topnav').style.display='block';
+}
+function initialize() {
+if (obj1.select_str =='') {
+	for(var i=0;i<document.getElementById(obj1.selname).options.length;i++) {
+	obj1.selectArr[i] = document.getElementById(obj1.selname).options[i];
+	obj1.select_str += document.getElementById(obj1.selname).options[i].value+":"+
+	document.getElementById(obj1.selname).options[i].text+",";
+   }
+}
+else {
+	var tempArr = obj1.select_str.split(',');
+	for(var i=0;i<tempArr.length;i++) {
+	var prop = tempArr[i].split(':');
+	obj1.selectArr[i] = new Option(prop[1],prop[0]);
+   }
+}
+return;
+}
+function bldInitial() {
+obj1.initialize();
+for(var i=0;i<obj1.selectArr.length-1;i++)
+document.getElementById(obj1.selname).options[i] = obj1.selectArr[i];
+document.getElementById(obj1.selname).options.length = obj1.selectArr.length;
+return;
+}
+
+function bldUpdate() {
+var str = document.getElementById(obj1.textname).value.replace('^\\s*','');
+if(str == '') {obj1.bldInitial();return;}
+obj1.initialize();
+var j = 0;
+pattern1 = new RegExp("^"+str,"i");
+for(var i=0;i<obj1.selectArr.length;i++)
+if(pattern1.test(obj1.selectArr[i].text)){
+document.getElementById(obj1.selname).options[j++] = obj1.selectArr[i];
+}
+document.getElementById(obj1.selname).options.length = j;
+if(j==1){
+document.getElementById(obj1.selname).options[0].selected = true;
+//document.[obj1.textname].value = document.obj1.selname.options[0].text;
+   }
+}
+obj1 = new SelObj('selectusu','entry');
+/*
+*Metodo ajax
+*/
+function objetoAjax(){
+ var xmlhttp=false;
+  try{
+   xmlhttp = new ActiveXObject("Msxml2.XMLHTTP");
+  }catch(e){
+   try {
+    xmlhttp = new ActiveXObject("Microsoft.XMLHTTP");
+   }catch(E){
+    xmlhttp = false;
+   }
+  }
+  if (!xmlhttp && typeof XMLHttpRequest!='undefined') {
+   xmlhttp = new XMLHttpRequest();
+  }
+  return xmlhttp;
+}
+/*
+*Muestra el nº de mensajes que tenemos sin leer
+*/
+function recargarcorreos(){
+		var fondo = document.getElementById('numerosinleer');
+		var ajax = objetoAjax();
+		var respuesta='';
+		ajax.open("GET", "./gestion/cuentacorreos.php",false);
+			ajax.onreadystatechange=function() {
+			if (ajax.readyState==4) {
+				respuesta=ajax.responseText;
+				}
+			}
+			ajax.send();
+		if(respuesta!='0' && respuesta!='undefined'){
+		fondo.innerHTML="("+respuesta+")";
+		}else{
+		fondo.innerHTML="";
+		}
+		if(respuesta!='0'){
+			if(fondo.style.color=='white'){
+			fondo.style.color='red';
+			}else if(fondo.style.color=='red'){
+			fondo.style.color='white';
+			}
+		}else{
+			if(fondo.style.display=='none')
+			fondo.style.display='block';
+		}
+		if(respuesta=='undefined'){
+			window.clearInterval(timer);
+		}
+}
+/*
+*
+*/
+function mostrardiv(){
+	var fondo = window.parent.document.getElementById('divfon');
+	if(fondo.style.display=='none'){
+	fondo.style.display='block';	
+	}
+	if(fondo.style.display=='block'){
+	fondo.style.display='none';
+	}
+}
+/*
+*Añade area al div resultareas
+*/
+function oculdiv(){
+var algunoseleccionado='false';
+var dato1 = document.getElementById('selectusu').options;
+fechax=document.getElementById('fechaisub2').value;
+fechay=document.getElementById('fechafsub2').value;
+
+for (var j = 0, total1 = dato1.length; j < total1; j ++){
+	if (dato1[j].selected){
+	algunoseleccionado='true';
+	}
+}
+var nuevafecha1='';
+var nuevafecha2='';
+
+	if(fechax!='' && fechay!=''){
+		nuevafecha1=fechax.split('/');
+		nuevafecha2=fechay.split('/');
+	}
+	if(algunoseleccionado=='true' && fechax!='' && fechay!='' && fechax.length==10 && fechay.length==10 && isValidDate(nuevafecha1[0],nuevafecha1[1],nuevafecha1[2]) && isValidDate(nuevafecha2[0],nuevafecha2[1],nuevafecha2[2])){
+	usuario='';
+	var fechanuevafin=fechay.split('/');
+	var fechanfin=fechanuevafin[2]+"-"+fechanuevafin[1]+"-"+fechanuevafin[0];
+	var fechanuevaini=fechax.split('/');
+	var fechanini=fechanuevaini[2]+"-"+fechanuevaini[1]+"-"+fechanuevaini[0];
+	var estructura='';
+	for (var j = 0, total1 = dato1.length; j < total1; j ++)
+		if (dato1[j].selected)
+		usuario=dato1[j];
+		if(usuario!=''){
+			estructura+= "<a class='tooltip'>"+areaseleccionada.innerHTML+"|"+usuario.innerHTML+"<span>\nini:"+fechax+"\nfin:"+fechay+"</span></a>";	
+			
+		document.getElementById('resultareas'+opcionelegida).innerHTML+="<div name='pdiv"+opcionelegida+"' id='"+areaseleccionada.value+"|"+usuario.value+"|"+fechanini+"|"+fechanfin+"'>"+estructura+"<br></div>";
+		}else{
+		areaseleccionada.selected=false;
+		}
+		document.getElementById('topnav').style.display='block';
+		document.getElementById("divfondo").style.display="none";
+		for (var j = 0, total1 = dato1.length; j < total1; j ++){
+		dato1[j].selected=false;
+		}
+		document.getElementById('fechaisub2').value='';
+		document.getElementById('fechafsub2').value='';
+		compruebacampos(document.getElementById('selsubpro'));
+		}
+		
+	else{
+	alert('Tiene que rellenar todos los campos correctamente');
+	}
+}
+function ini(x)	{
+				window["opciones"+x] = new Array();
+				var dato = document.getElementById('select3'+x).options;
+				for (var i = 0, total = dato.length; i < total; i ++)
+				window["opciones"+x][i] = dato[i].selected;
+}
+/*
+ * Vaciamos div resultareas
+ */
+function eliminarsub(num){
+	var elemento = document.getElementById('select'+num).selectedIndex;
+	var d = document.getElementById('resultareas');
+	var olddiv = document.getElementById('div'+num);
+	d.removeChild(olddiv);
+	parrafo=document.getElementsByName('selsubpro');
+	for(i=0;i<parrafo.length;i++){
+		parrafo[i].options[elemento].disabled=false;
+	}
+}
+function ctrMays(num)	{
+			opciones = new Array();
+			opciones=window["opciones"+num];
+			var dato = document.getElementById("select3"+num).options;
+			for (var i = 0, total = dato.length; i < total; i ++)
+			if (dato[i].selected)
+			opciones[i] = !opciones[i];
+			for (var i = 0, total = dato.length; i < total; i ++)
+			dato[i].selected = opciones[i];
+			opcionelegida=num;
+}
+/*
+ *Elimina contenido de un div 
+ */
+function eliminarContenido(contenedor)
+{
+	while (contenedor.childNodes.length>0){
+	  contenedor.innerHTML='';
+	  for(i=0;i<=contenedor.childNodes.length;i++) {
+		//contenedor.removeChild(contenedor.childNodes[i]);
+		}  
+	}
+}
+/*
+ *Crea un nuevo div para un nuevo subproyecto 
+ */
+function asignarsub(x){
+	var respuesta = document.getElementById('resultareas');
+	var ajax = objetoAjax();
+	var elementos='';
+	ajax.open("GET", "./gestion/cargarasignacion.php?x="+x,false);
+		ajax.onreadystatechange=function() {
+		if (ajax.readyState==4) {
+			var resultado=ajax.responseText;
+			elementos = resultado.split("|");
+			element=document.createElement('div');
+			element.id='div'+elementos[1];
+			element.style.heigth='140px';
+			element.innerHTML=elementos[0];
+			respuesta.appendChild(element);
+			}
+		}
+		ajax.send();
+		ini(elementos[1]);
+		var numero=parseInt(elementos[1])+1;
+		document.getElementById('nuevosub').innerHTML="<td style='text-align:center;border:0;'><a id='nuevopro' name='n"+numero+"' onclick=asignarsub("+numero+") style='text-shadow:1px 1px 0px rgba(230,230,230,1), 2px 2px 0px rgba(200,200,200,1),  3px 3px 0px rgba(180,180,180,1),  4px 4px 0px rgba(160,160,160,1);5px 5px 0px rgba(0,0,0,1), 8px 8px 20px rgba(0,0,0,0.5);font-size:medium;color:black;cursor:pointer;'>Añadir Subproyecto</a></td><td style='border:0;text-align:center;'><a id='creasub' name='crea' onclick='creasub()' style='text-shadow:1px 1px 0px rgba(230,230,230,1), 2px 2px 0px rgba(200,200,200,1),  3px 3px 0px rgba(180,180,180,1),  4px 4px 0px rgba(160,160,160,1);5px 5px 0px rgba(0,0,0,1), 8px 8px 20px rgba(0,0,0,0.5);font-size:medium;color:black;cursor:pointer;'>Crear Subproyecto</a></td>";
+		parrafo=document.getElementsByName('selsubpro');
+		for(i=0;i<parrafo.length;i++)
+		{
+			if(parrafo[i].selectedIndex!=0)
+			{
+				document.getElementById('select'+elementos[1]).options[parrafo[i].selectedIndex].disabled=true;
+			}
+		}
+		
+	return elementos[1];
+}
+/*
+ *Metodo que llama a creasubp.php para la creacion de un nuevo subproyecto 
+ */
+function creasub(){
+var nombre;
+nombre=prompt('Nombre para el subproyecto:','');
+	if(nombre!='' && nombre!=null){
+		var ajax = objetoAjax();
+		ajax.open("GET", "./gestion/creasubp.php?nombre="+nombre,true);
+		ajax.send();
+	}	
+}
+/*
+ *Metodo que llama a creaarea.php para la creacion de una nueva area 
+ */
+function creaarea(){
+var nombre;
+nombre=prompt('Nombre para el area:','');
+	if(nombre!='' && nombre!=null){
+		var ajax = objetoAjax();
+		ajax.open("GET", "./gestion/creaarea.php?nombre="+nombre,true);
+		ajax.send();
+	}	
+}
+/*
+ *Añade area a resultareas con la asignacion correspondiente
+ */
+function asignarusuario(opcion,nsub){
+	var divs = document.getElementsByName('pdiv'+nsub);
+	if(divs.length>0){
+		for(h=0;h<divs.length;h++){
+			var cortar = divs[h].id.split("|");
+			if(cortar[0]==opcion.value){
+				elemento=document.getElementById(""+divs[h].id+"");
+				elemento.parentNode.removeChild(elemento);
+			}	
+		}
+	}
+	if(opcion.selected){
+		parrafo=document.getElementsByName('pdiv'+nsub);
+		var numero='0';
+		var veces=0;
+		for (i=0;i<parrafo.length;i++){
+			numero=parrafo[i].id.split('|');
+			if(numero[0] == opcion.value){
+			veces+=1;
+			}
+		}
+		if(veces==0){
+		var divseleccionusu = document.getElementById('divfondo');
+		divseleccionusu.style.display='block';
+		document.getElementById('topnav').style.display='none';
+		areaseleccionada=opcion;
+		}
+		
+	}else{
+		parrafo=document.getElementsByName('pdiv'+nsub);
+		var numero='0';
+		for (i=0;i<parrafo.length;i++){
+			numero=parrafo[i].id.split('|');
+			if(numero[0] == opcion.value){
+			elemento=document.getElementById(""+parrafo[i].id+"");
+			elemento.parentNode.removeChild(elemento);
+			opcion.style.background='transparent';
+			}
+		}
+	}
+}
+/*
+ *habilita y deshabilita un subproyecto en los select
+ */
+function elimsubpro(select){
+	seleccionado=document.getElementById('select'+select);
+	parrafo=document.getElementsByName('selsubpro');
+	elemento=seleccionado.selectedIndex;
+		for (i=0;i<parrafo.length;i++){
+			if(parrafo[i].id!=seleccionado.id){
+				if(elemento!=0)
+				parrafo[i].options[elemento].disabled=true;
+				for(j=1;j<seleccionado.options.length;j++){
+						if(seleccionado.options[j].disabled==false && j!=elemento)
+						parrafo[i].options[j].disabled=false;
+				}
+			}
+		}
+}
+/*
+ *Crea un nuevo proyecto atraves de el script guardaProyecto con los valores que se envian en un JSON 
+ */
+function crearproyecto(){
+var nombre=document.getElementById('nombreproyecto').value;
+var fechainiM=document.getElementById('fecha').value;
+var fechafinM=document.getElementById('fecha1').value;
+var cliente=document.getElementById('selectcli').value;
+var jefe=document.getElementById('selectjefe').value;
+subproyectos=document.getElementsByName('selsubpro');
+var strReturn='{ "SubProyecto":[';
+for(i=0;i<subproyectos.length;i++){
+	var id = subproyectos[i].id.substring(6);
+	var valor=subproyectos[i].value;
+	var usuarios=document.getElementById('selecty'+id);
+	var selectusu=0;
+	for(a=0;a<usuarios.options.length;a++){
+		if(usuarios.options[a].selected)
+			selectusu=usuarios.options[a].value;
+	}
+	var fechainiA=document.getElementById('fechaisub'+id).value;
+	var fechafinA=document.getElementById('fechafsub'+id).value;
+	var idsub = valor;
+	strReturn+='{ "fechafinA": "'+fechafinA+'" , "fechainiA": "'+fechainiA+'" , "idsub": "'+idsub+'" , "idj": "'+selectusu+'", "Areas":[';
+	parrafo=document.getElementsByName('pdiv'+id);
+	for (j=0;j<parrafo.length;j++){
+			numero=parrafo[j].id.split('|');
+			  strReturn +='{ "fechaestini": "'+numero[2]+'" , "fechaestfin": "'+numero[3]+'" , "idarea": "' + numero[0] + '",';
+			  if(j<parrafo.length-1){
+			  strReturn += '"idusu": "' + numero[1] + '"},';
+				}else{
+				strReturn += '"idusu": "' + numero[1] + '"}]';	
+				}
+		}
+	if(i<subproyectos.length-1){
+	strReturn+='},';	
+	}else{
+	strReturn+='}]}';	
+	}
+}
+/*
+ *Si los valores son correctos se creará el proyecto y volverá al formulario de creación con los campos vacios 
+ */
+	if(compruebavaloresproyecto()==6){
+		var ajax = objetoAjax();
+		ajax.open("GET", "./gestion/guardaProyecto.php?jefe="+jefe+"&nombre="+nombre+"&texto="+strReturn+"&fechainiM="+fechainiM+"&fechafinM="+fechafinM+"&cliente="+cliente,true);
+		ajax.send();
+		opcion('crearProyecto.php');
+		obj1.bldInitial(); 
+	}
+}
+/*
+ *envia correo con la informacion del usuario a la hora de registrar un nuevo usuario
+ */
+function enviacorreousu(){
+	 var pass=document.getElementById('pass').value;
+	 var email=document.getElementById('email').value;
+	 var nickusuario=document.getElementById('nick').value;
+	 var ajax = objetoAjax();
+	 ajax.open("GET", "mail.php?pass="+pass+"&nombre="+nickusuario+"&email="+email,true);
+	 ajax.send();
+}
+/*
+ *Comprueba que todos los valores del proyecto sea correcto para su creacion o modificacion 
+ */
+function compruebavaloresproyecto(nsub){
+	var correcto=0;
+	var boolcorrecto=true;
+	var fecha1='';
+	var fecha2='';
+	var nombre=document.getElementById('nombreproyecto').value;
+	var fechaini=document.getElementById('fecha').value;
+	var fechafin=document.getElementById('fecha1').value;
+	var cliente=document.getElementById('selectcli').value;
+	var jefe=document.getElementById('selectjefe').value;
+	subproyectos=document.getElementsByName('selsubpro');
+	if(subproyectos.length>0){
+		for(i=0;i<subproyectos.length;i++){
+			var id = subproyectos[i].id.substring(6);
+			parrafo=document.getElementsByName('pdiv'+id);
+			fechasub1=document.getElementById('fechaisub'+id);
+			fechasub2=document.getElementById('fechafsub'+id);
+			if(fechasub1.value.length==10){
+			fecha1=fechasub1.value.split('/');
+			}else{
+				fecha1[0]='00';
+				fecha1[1]='00';
+				fecha1[2]='0000';
+			}
+			if(fechasub2.value.length==10){
+			fecha2=fechasub2.value.split('/');
+			}else{
+				fecha2[0]='00';
+				fecha2[1]='00';
+				fecha2[2]='0000';	
+			}
+			jefex=document.getElementById('selecty'+id);
+			if(parrafo.length<1){
+			boolcorrecto=false;
+			}else{
+			if(fechasub1.value=='' || fechasub2.value=='' || jefex.value=='' || !isValidDate(fecha1[0],fecha1[1],fecha1[2]) || !isValidDate(fecha2[0],fecha2[1],fecha2[2]))	
+			boolcorrecto=false;
+			}
+		}
+	}
+	if(subproyectos.length<1)
+	boolcorrecto=false;
+	if(boolcorrecto){
+	correcto+=1;
+	document.getElementById('errores').innerHTML="";
+	}else{
+	document.getElementById('errores').innerHTML="<a style='color:red'>Rellene los subproyectos correctamente</a>";
+	}
+	if(nombre.length<6){
+	document.getElementById('errornombre').innerHTML="<a style='color:red'>La longitud del nombre debe ser mayor a 5</a>";
+	}else{
+	correcto+=1;
+	document.getElementById('errornombre').innerHTML="";
+	}
+	var fecha=fechaini.split("/");
+	if(!isValidDate(fecha[0],fecha[1],fecha[2]) || fechaini==''){
+	document.getElementById('errorfecha').innerHTML="<a style='color:red'>Introduzca bien la fecha de inicio</a>";
+	}else{
+	correcto+=1;
+	document.getElementById('errorfecha').innerHTML="";
+	}
+	var fecha1=fechafin.split("/");
+	if(!isValidDate(fecha1[0],fecha1[1],fecha1[2]) || fechafin==''){
+	document.getElementById('errorfecha1').innerHTML="<a style='color:red'>Introduzca bien la fecha de finalización</a>";
+	}else{
+	correcto+=1;
+	document.getElementById('errorfecha1').innerHTML="";
+	}
+	if(cliente!=""){
+	correcto+=1;
+	document.getElementById('errorcliente').innerHTML="";
+	}else{
+	document.getElementById('errorcliente').innerHTML="<a style='color:red'>Debe asignar el proyecto a un cliente</a>";	
+	}
+	if(jefe!=""){
+	correcto+=1;
+	document.getElementById('errorjefe').innerHTML="";
+	}else{
+	document.getElementById('errorjefe').innerHTML="<a style='color:red'>Debe asignar el proyecto a un cliente</a>";	
+	}
+	return correcto;
+}
+/*
+ *Comprueba valor de cada campo
+ */
+function compruebacampos(campo){
+	var boolcorrecto=true;
+	var idcampo = campo.id;
+	var fecha1='';
+	var fecha2='';
+	subproyectos=document.getElementsByName('selsubpro');
+	if(campo.name=='selsubpro' || campo.name=='fechaisub' || campo.name=='fechafsub' || campo.name=='selecty'){
+		if(subproyectos.length>0){
+			for(i=0;i<subproyectos.length;i++){
+				var id = subproyectos[i].id.substring(6);
+				select=document.getElementsByName('select'+id);
+				parrafo=document.getElementsByName('pdiv'+id);
+				fechasub1=document.getElementById('fechaisub'+id);
+				fechasub2=document.getElementById('fechafsub'+id);
+				if(fechasub1.value.length==10){
+					fecha1=fechasub1.value.split('/');
+				}else{
+					fecha1[0]='00';
+					fecha1[1]='00';
+					fecha1[2]='0000';
+				}
+				if(fechasub2.value.length==10){
+					fecha2=fechasub2.value.split('/');
+				}else{
+					fecha2[0]='00';
+					fecha2[1]='00';
+					fecha2[2]='0000';
+				}
+				
+				jefex=document.getElementById('selecty'+id);
+				if(parrafo.length<1){
+				boolcorrecto=false;
+				}else{
+				if(fechasub1.value=='' || !isValidDate(fecha1[0],fecha1[1],fecha1[2]) || !isValidDate(fecha2[0],fecha2[1],fecha2[2])|| fechasub1.value<10 || fechasub2.value<10 || fechasub2.value=='' || jefex.value=='' || select.selectedIndex==0)	
+				boolcorrecto=false;
+				}
+			}
+		}
+			if(campo.length<1)
+			boolcorrecto=false;
+			if(boolcorrecto){
+			document.getElementById('errores').innerHTML="";
+			}else{
+			document.getElementById('errores').innerHTML="<a style='color:red'>Rellene los subproyectos correctamente</a>";
+			}
+	}
+	switch(campo.id)
+       {
+		case "nombreproyecto":
+		if(campo.value.length<6){
+		document.getElementById('errornombre').innerHTML="<a style='color:red'>La longitud del nombre debe ser mayor a 5</a>";
+		}else{
+		document.getElementById('errornombre').innerHTML="";
+		}
+		break;
+		case "fecha":
+			var fecha=campo.value.split("/");
+			if(!isValidDate(fecha[0],fecha[1],fecha[2])){
+			document.getElementById('errorfecha').innerHTML="<a style='color:red'>Introduzca bien la fecha de inicio</a>";
+			}else{
+			document.getElementById('errorfecha').innerHTML="";
+			}
+		break;
+		case "fecha1":
+			var fecha=campo.value.split("/");
+			if(!isValidDate(fecha[0],fecha[1],fecha[2])){
+			document.getElementById('errorfecha1').innerHTML="<a style='color:red'>Introduzca bien la fecha de finalización</a>";
+			}else{
+			document.getElementById('errorfecha1').innerHTML="";
+			}
+		break;
+		case "selectcli":
+			var cliente=campo.value;
+			if(cliente==''){
+			document.getElementById('errorcliente').innerHTML="<a style='color:red'>Introduzca bien la fecha de finalización</a>";
+			}else{
+			document.getElementById('errorcliente').innerHTML="";
+			}
+		break;
+		case "selectjefe":
+			var jefe=campo.value;
+			if(jefe==''){
+			document.getElementById('errorjefe').innerHTML="<a style='color:red'>Introduzca bien la fecha de finalización</a>";
+			}else{
+			document.getElementById('errorjefe').innerHTML="";
+			}
+		break;
+	}
+}
+/*
+ * Valida si la fecha es correcta 
+ */
+function isValidDate(day,month,year){
+var dteDate;
+month=month-1;
+dteDate=new Date(year,month,day);
+	if ((day==dteDate.getDate()) && (month==dteDate.getMonth()) && (year==dteDate.getFullYear())){
+		return true;
+	}
+	else{
+		return false;
+	}
+}
+/*
+ * Carga el script correspondiente para ver los correos recibidos o enviados.
+ * Tambien para redactar uno nuevo 
+ */
+function accion(boton){
+	var idcentro = document.getElementById('centrocorreo');
+	var ajax = objetoAjax();
+	if(boton=='Recibidos')
+		ajax.open("GET", "./gestion/correosrecibidos.php",true);
+	if(boton=='Enviados')
+		ajax.open("GET", "./gestion/correosenviados.php",true);
+
+if(boton=='Redactar'){
+		idcentro.innerHTML="<iframe style='overflow:hidden;width:100%;height:100%;border:0;' src='./gestion/crearCorreo.php'></iframe>";
+	}else{
+		ajax.onreadystatechange=function() {
+		if (ajax.readyState==4) {
+			idcentro.innerHTML=ajax.responseText;
+			}
+		}
+		ajax.send();
+	}
+}
+/*
+ * Recarga el numero de correos sin leer y lo hace parpadear 
+ */
+function ocultarmensaje(mens,metodo){
+	if(document.getElementById('mens'+mens).style.display=='none')
+	{
+		document.getElementById('mens'+mens).style.display='block';
+	}
+	else if(document.getElementById('mens'+mens).style.display=='block')
+	{
+		document.getElementById('mens'+mens).style.display='none';
+	}	
+	if(metodo==0){
+	var ajax = objetoAjax();
+	ajax.open("GET", "./gestion/correoleidooborrado.php?mens="+mens,true);
+	ajax.send();
+	 var el = document.getElementById('tr'+mens); 
+	 if(el.style.backgroundColor=='rgb(233, 233, 233)'){
+		  el.style.backgroundColor = "#FFFFFF"; 
+		 var numero=parseInt(document.getElementById('mensnole').innerHTML)-1;
+	document.getElementById('mensnole').innerHTML=''+numero;
+		}
+	}
+}
+

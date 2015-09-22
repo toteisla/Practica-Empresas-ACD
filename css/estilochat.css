@@ -1,0 +1,35 @@
+.divchat
+{
+width:auto;
+height:auto;
+position:absolute;
+z-index:10;
+}
+
+.pestaña
+{
+background-color:#CAC9C9;
+margin:0 15px 0 0;
+padding:0 10px 0 10px;
+-webkit-border-bottom-right-radius: 5px;
+-webkit-border-bottom-left-radius: 5px;
+-moz-border-radius-bottomright: 5px;
+-moz-border-radius-bottomleft: 5px;
+border-bottom-right-radius: 5px;
+border-bottom-left-radius: 5px;
+cursor:pointer;
+}
+
+.cuadrotext
+{
+width:150px; 
+height:200px; 
+overflow:auto;
+border : 2px solid #005577; 
+-webkit-border-radius: 5px; 
+-moz-border-radius: 5px; 
+border-radius: 5px;
+background-color:#969393;
+color:#000000;
+word-wrap:break-word;
+}
